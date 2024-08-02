@@ -50,6 +50,56 @@ services:
       - traefik.http.routers.traefik-dashboard-secure.service=api@internal
       - traefik.http.services.traefik-dashboard-secure.loadbalancer.server.port=8080
 
+  zitadel:
+    image: ghcr.io/zitadel/zitadel:v2.55.0
+    restart: unless-stopped
+    command: 'start-from-init --masterkeyFromEnv'
+    environment:
+      - ZITADEL_TLS_ENABLED=false
+      - ZITADEL_EXTERNALSECURE=true
+      - ZITADEL_EXTERNALDOMAIN=${ZITADEL_APP_HOST?}
+      - ZITADEL_EXTERNALPORT=443
+      - ZITADEL_MASTERKEY=${ZITADEL_MASTERKEY?}
+      # database config
+      - ZITADEL_DATABASE_POSTGRES_HOST=${ZITADEL_STORAGE_POSTGRES_HOST?}
+      - ZITADEL_DATABASE_POSTGRES_PORT=${ZITADEL_STORAGE_POSTGRES_PORT?}
+      - ZITADEL_DATABASE_POSTGRES_DATABASE=${ZITADEL_POSTGRES_DATABASE_NAME?}
+
+      - ZITADEL_DATABASE_POSTGRES_ADMIN_EXISTINGDATABASE=${ZITADEL_POSTGRES_DATABASE_NAME-}
+      - ZITADEL_DATABASE_POSTGRES_ADMIN_USERNAME=${ZITADEL_STORAGE_POSTGRES_USERNAME?}
+      - ZITADEL_DATABASE_POSTGRES_ADMIN_PASSWORD=${ZITADEL_STORAGE_POSTGRES_PASSWORD?}
+      - ZITADEL_DATABASE_POSTGRES_ADMIN_SSL_MODE=disable
+
+      - ZITADEL_DATABASE_POSTGRES_USER_USERNAME=${ZITADEL_STORAGE_POSTGRES_USERNAME?}
+      - ZITADEL_DATABASE_POSTGRES_USER_PASSWORD=${ZITADEL_STORAGE_POSTGRES_PASSWORD?}
+      - ZITADEL_DATABASE_POSTGRES_USER_SSL_MODE=disable
+      # First human account config
+      - ZITADEL_FIRSTINSTANCE_ORG_HUMAN_USERNAME=${ZITADEL_FIRST_HUMAN_ACCOUNT_USERNAME?}
+      - ZITADEL_FIRSTINSTANCE_ORG_HUMAN_PASSWORD=${ZITADEL_FIRST_HUMAN_ACCOUNT_PASSWORD?}
+    networks:
+      - gateway_proxy
+    labels:
+      - traefik.enable=true
+      - traefik.docker.network=gateway_proxy
+      - traefik.http.routers.zitadel.rule=HOST(`${ZITADEL_APP_HOST?}`)
+      - traefik.http.routers.zitadel.entrypoints=insecure-web
+      - traefik.http.routers.zitadel.middlewares=zitadel-https-redirect-middleware
+
+      # ssl stuff
+      - traefik.http.middlewares.zitadel-https-redirect-middleware.redirectscheme.scheme=https
+      - traefik.http.middlewares.zitadel-https-redirect-middleware.redirectscheme.permanent=true
+
+      - traefik.http.routers.zitadel-secure.rule=Host(`${ZITADEL_APP_HOST?}`)
+      - traefik.http.routers.zitadel-secure.entrypoints=secure-web
+      - traefik.http.routers.zitadel-secure.tls=true
+      - traefik.http.routers.zitadel-secure.tls.certresolver=rapina
+
+      # Tell traefik to use http/2 to communicate with zitadel
+      - traefik.http.services.zitadel-secure.loadbalancer.server.scheme=h2c
+      - traefik.http.services.zitadel-secure.loadbalancer.passhostheader=true
+      - traefik.http.services.zitadel-secure.loadbalancer.server.port=8080
+
+
 networks:
   gateway_proxy:
     driver: bridge
