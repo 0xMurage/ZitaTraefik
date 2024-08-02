@@ -1,0 +1,29 @@
+services:
+  gateway_proxy:
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock:ro
+      - ./certs/pebble.minica.pem:/pebble.minica.pem
+
+    environment:
+      LEGO_CA_CERTIFICATES: /pebble.minica.pem
+      LEGO_CA_SERVER_NAME: pebble
+    networks:
+      - bojack
+    depends_on:
+      pebble_acme:
+        condition: service_started
+        required: true
+
+  pebble_acme:
+    image: ghcr.io/letsencrypt/pebble:latest
+    expose:
+      - 14000
+    environment:
+      PEBBLE_VA_NOSLEEP: 1
+      PEBBLE_VA_ALWAYS_VALID: 1
+    networks:
+      - bojack
+
+networks:
+  bojack:
+    driver: bridge

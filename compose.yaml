@@ -1,0 +1,56 @@
+name: zitadel-memo
+
+services:
+  gateway_proxy:
+    image: docker.io/traefik:v3.1.1
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock:ro
+    ports:
+      - 443:443
+      - 80:80
+    networks:
+      - gateway_proxy
+    command:
+
+      # entry points
+      - --entrypoints.insecure-web.address=:80
+      - --entrypoints.secure-web.address=:443
+
+      # providers
+      - --providers.docker=true
+      - --providers.docker.exposedbydefault=false
+
+      # TLS cert resolvers
+      - --certificatesresolvers.rapina.acme.httpchallenge=true
+      - --certificatesresolvers.rapina.acme.httpchallenge.entrypoint=insecure-web
+      - --certificatesresolvers.rapina.acme.caserver=${TRAEFIK_HTTP_CHALLENGE_ACME_CA_SERVER?}
+      - --certificatesresolvers.rapina.acme.email=${TRAEFIK_ACME_EMAIL?}
+
+      # miscellaneous
+      - --api.insecure=true #dashboard has no auth :) 
+      - --log.level=${TRAEFIK_DEBUG_LEVEL:-WARN}
+
+    labels:
+      # expose the traefik dashboard
+      - traefik.enable=true
+      - traefik.http.routers.traefik-dashboard.rule=HOST(`${TRAEFIK_DASHBOARD_HOST?}`)
+      - traefik.http.routers.traefik-dashboard.entrypoints=insecure-web
+      - traefik.http.routers.traefik-dashboard.middlewares=traefik-dashboard-https-redirect-middleware
+
+      # ssl stuff
+      - traefik.http.middlewares.traefik-dashboard-https-redirect-middleware.redirectscheme.scheme=https
+      - traefik.http.middlewares.traefik-dashboard-https-redirect-middleware.redirectscheme.permanent=true
+
+      - traefik.http.routers.traefik-dashboard-secure.rule=Host(`${TRAEFIK_DASHBOARD_HOST?}`)
+      - traefik.http.routers.traefik-dashboard-secure.entrypoints=secure-web
+      - traefik.http.routers.traefik-dashboard-secure.tls=true
+      - traefik.http.routers.traefik-dashboard-secure.tls.certresolver=rapina
+
+      # expose the service explicitly
+      - traefik.http.routers.traefik-dashboard-secure.service=api@internal
+      - traefik.http.services.traefik-dashboard-secure.loadbalancer.server.port=8080
+
+networks:
+  gateway_proxy:
+    driver: bridge
+    name: gateway_proxy
