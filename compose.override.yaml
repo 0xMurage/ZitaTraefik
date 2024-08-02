@@ -1,4 +1,27 @@
 services:
+  zitadel:
+    networks:
+      - monocots
+    depends_on:
+      postgres_db:
+        condition: 'service_healthy'
+
+  postgres_db:
+    image: docker.io/postgres:16.3-alpine3.20
+    volumes:
+      - commelinids:/var/lib/postgresql/data
+    environment:
+      - POSTGRES_DB=${ZITADEL_POSTGRES_DATABASE_NAME?}
+      - POSTGRES_USER=${ZITADEL_STORAGE_POSTGRES_USERNAME?}
+      - POSTGRES_PASSWORD=${ZITADEL_STORAGE_POSTGRES_PASSWORD?}
+    networks:
+      - monocots
+    healthcheck:
+      test: [ 'CMD-SHELL','pg_isready -d ${ZITADEL_POSTGRES_DATABASE_NAME} -U ${ZITADEL_STORAGE_POSTGRES_USERNAME}' ]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+
   gateway_proxy:
     volumes:
       - /var/run/docker.sock:/var/run/docker.sock:ro
@@ -24,6 +47,11 @@ services:
     networks:
       - bojack
 
+volumes:
+  commelinids:
+
 networks:
+  monocots:
+    driver: bridge
   bojack:
     driver: bridge
