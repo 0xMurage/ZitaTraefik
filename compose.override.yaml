@@ -4,7 +4,7 @@ services:
       - monocots
     depends_on:
       postgres_db:
-        condition: 'service_healthy'
+        condition: service_healthy
 
   postgres_db:
     image: docker.io/postgres:16.3-alpine3.20

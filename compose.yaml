@@ -19,6 +19,7 @@ services:
       # providers
       - --providers.docker=true
       - --providers.docker.exposedbydefault=false
+      - --providers.docker.network=gateway_proxy
 
       # TLS cert resolvers
       - --certificatesresolvers.rapina.acme.httpchallenge=true
@@ -80,7 +81,6 @@ services:
       - gateway_proxy
     labels:
       - traefik.enable=true
-      - traefik.docker.network=gateway_proxy
       - traefik.http.routers.zitadel.rule=HOST(`${ZITADEL_APP_HOST?}`)
       - traefik.http.routers.zitadel.entrypoints=insecure-web
       - traefik.http.routers.zitadel.middlewares=zitadel-https-redirect-middleware
